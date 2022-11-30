@@ -1,3 +1,4 @@
+pysen[lint]
 fire
 matplotlib
 seaborn
