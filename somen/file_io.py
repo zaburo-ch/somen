@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import dataclasses
 import hashlib
 import json
@@ -198,6 +199,26 @@ def save_yaml_from_dataclass(X: Any, filepath: PathLike) -> None:
     _check_dir(filepath)
     with open(str(filepath), "w") as fp:
         yaml.safe_dump(_apply_inv_type_hooks(dataclasses.asdict(X)), fp)
+
+
+_StrFallbackSafeDumper = None
+
+
+def yaml_easy_dump(X: Any, **kwargs) -> Any:  # type: ignore
+    global _StrFallbackSafeDumper
+    if _StrFallbackSafeDumper is None:
+
+        def object_representer(dumper, data):
+            return dumper.yaml_representers[str](dumper, str(data))
+
+        StrFallbackSafeDumper = copy.deepcopy(yaml.dumper.SafeDumper)
+        StrFallbackSafeDumper.add_multi_representer(object, object_representer)
+
+    return yaml.dump(X, Dumper=StrFallbackSafeDumper, **kwargs)
+
+
+def yaml_easy_dump_dataclass(X: Any, **kwargs) -> Any:  # type: ignore
+    return yaml_easy_dump(dataclasses.asdict(X), **kwargs)
 
 
 def _as_annotated_type(value: str, annotated_type: Type[T]) -> T:
