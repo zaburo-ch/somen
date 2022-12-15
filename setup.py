@@ -19,5 +19,5 @@ setup(
         "colorlog",
         "tqdm",
     ],
-    package_data={"somen": ["py.typed"]},
+    package_data={"somen": ["py.typed"], "somen.logger": ["_default_logging_config.yaml"]},
 )
