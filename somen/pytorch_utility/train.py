@@ -32,7 +32,7 @@ from somen.pytorch_utility.default_regressor import DefaultRegressor
 from somen.pytorch_utility.extensions.best_value_snapshot import BestValueSnapshot
 from somen.pytorch_utility.extensions.evaluator_ext import EvaluatorExt
 from somen.pytorch_utility.extensions.my_lr_scheduler import MyLRScheduler
-from somen.pytorch_utility.my_evaluator import MyEvaluator
+from somen.pytorch_utility.my_evaluator import MyDistributedEvaluator, MyEvaluator
 from somen.pytorch_utility.my_handler import MyHandler
 from somen.types import PathLike
 
@@ -123,8 +123,9 @@ def train(
 
         if config.train_sampler is None:
             if config.distributed:
+                # train_sampler.set_epoch は Logic.train_epoch_begin で呼ばれる
                 train_sampler: torch.utils.data.Sampler = torch.utils.data.distributed.DistributedSampler(
-                    train_set, seed=config.sampler_seed
+                    train_set, seed=config.sampler_seed, drop_last=True
                 )
             else:
                 generator = torch.Generator()
@@ -237,25 +238,30 @@ def train(
         if isinstance(valid_sets, Dataset):
             valid_sets = {"": valid_sets}
 
-        if config.distributed:
-            # TODO: DistributedEvaluator
-            _logger.warning(
-                "DistributedEvaluator is still a work in progress. Only the main process will perform the evaluation."
-            )
-
         batch_size_valid = config.batch_size if config.batch_size_valid is None else config.batch_size_valid
+        evaluator_class = MyDistributedEvaluator if config.distributed else MyEvaluator
 
         for valid_name, valid_set in valid_sets.items():
-            valid_loader = DataLoader(
-                valid_set,
-                batch_size=batch_size_valid,
-                shuffle=False,
-                num_workers=config.num_workers,
-                collate_fn=collate_fn,
-                pin_memory=config.pin_memory,
-            )
+            if config.distributed:
+                valid_loader = DataLoader(
+                    valid_set,
+                    batch_size=batch_size_valid,
+                    sampler=torch.utils.data.distributed.DistributedSampler(valid_set, shuffle=False),
+                    num_workers=config.num_workers,
+                    collate_fn=collate_fn,
+                    pin_memory=config.pin_memory,
+                )
+            else:
+                valid_loader = DataLoader(
+                    valid_set,
+                    batch_size=batch_size_valid,
+                    shuffle=False,
+                    num_workers=config.num_workers,
+                    collate_fn=collate_fn,
+                    pin_memory=config.pin_memory,
+                )
 
-            evaluator = MyEvaluator(
+            evaluator = evaluator_class(
                 handler,
                 models=regressor,
                 progress_bar=config.progress_bar,
@@ -272,14 +278,10 @@ def train(
         if not isinstance(valid_loaders, dict):
             valid_loaders = {"": valid_loaders}  # type: ignore
 
-        if config.distributed:
-            # TODO: DistributedEvaluator
-            _logger.warning(
-                "DistributedEvaluator is still a work in progress. Only the main process will perform the evaluation."
-            )
+        evaluator_class = MyDistributedEvaluator if config.distributed else MyEvaluator
 
         for valid_name, valid_loader in valid_loaders.items():
-            evaluator = MyEvaluator(
+            evaluator = evaluator_class(
                 handler,
                 models=regressor,
                 progress_bar=config.progress_bar,

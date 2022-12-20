@@ -119,7 +119,21 @@ class MyEvaluator(Evaluator):
                     break
         # This will report to the trainer main reporter
         self.handler.eval_loop_end(self)
+        self._gather_summaries()
         reporting.report({f"{self._prefix}{key}": value for key, value in self._summary.compute_mean().items()})
 
         self._ins_list = None
         self._outs_list = None
+
+
+class MyDistributedEvaluator(MyEvaluator):
+    def __init__(self, *args, **kwargs) -> None:  # type: ignore
+        super().__init__(*args, **kwargs)
+        if not torch.distributed.is_initialized():  # type: ignore[no-untyped-call]
+            raise RuntimeError("PyTorch distributed module is not initialized.")
+
+    def _gather_summaries(self) -> None:
+        world_size = torch.distributed.get_world_size()  # type: ignore[no-untyped-call]
+        summaries = [reporting.DictSummary() for _ in range(world_size)]
+        torch.distributed.all_gather_object(summaries, self._summary)  # type: ignore[no-untyped-call]
+        self._summary = sum(summaries, reporting.DictSummary())
