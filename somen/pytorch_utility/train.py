@@ -1,3 +1,4 @@
+import collections.abc
 import cProfile
 import io
 import logging
@@ -110,7 +111,7 @@ def train(
         ]  # type: ignore
 
     # Set up optimizer
-    if isinstance(config.optimizer, torch.optim.Optimizer):
+    if isinstance(config.optimizer, (torch.optim.Optimizer, collections.abc.Mapping)):
         optimizer = config.optimizer
     else:
         optimizer = getattr(torch.optim, config.optimizer)(param_groups, **config.optimizer_params)
@@ -169,9 +170,15 @@ def train(
             extensions.append(PrintReport())
         if config.progress_bar:
             extensions.append(ProgressBar())
-        extension = observe_lr(optimizer)
-        extension.trigger = log_trigger
-        extensions.append(extension)
+        if isinstance(optimizer, Mapping):
+            for optimizer_name, actual_optimizer in optimizer.items():
+                extension = observe_lr(actual_optimizer, observation_key=f"{optimizer_name}_lr")
+                extension.trigger = log_trigger
+                extensions.append(extension)
+        else:
+            extension = observe_lr(optimizer)
+            extension.trigger = log_trigger
+            extensions.append(extension)
 
     # LR scheduler
     if config.lr_scheduler is not None or config.lr_scheduler_params is not None:

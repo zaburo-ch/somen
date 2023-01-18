@@ -4,6 +4,7 @@ from typing import Any, Mapping, Optional, Sequence, Tuple, Union
 import torch
 from pytorch_pfn_extras.handler import BaseLogic
 from pytorch_pfn_extras.training.trigger import TriggerLike
+from torch.optim.optimizer import Optimizer
 
 from somen.pytorch_utility.metrics.metric import Metric
 from somen.types import DeviceLike, LossFnType, SupportedObjectiveLiteral
@@ -12,7 +13,7 @@ from somen.types import DeviceLike, LossFnType, SupportedObjectiveLiteral
 @dataclass
 class TrainingConfig:
     # optimizer
-    optimizer: Union[torch.optim.Optimizer, str] = "Adam"
+    optimizer: Union[Optimizer, Mapping[str, Optimizer], str] = "Adam"
     optimizer_params: Mapping[str, Any] = field(default_factory=dict)
     no_decay_name_patterns: Sequence[str] = field(default_factory=list)
 
