@@ -1,8 +1,9 @@
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Union
+from typing import Callable, Dict, List, Literal, Mapping, Optional, Sequence, Union
 
 import numpy as np
 import torch
 from pytorch_pfn_extras.runtime import runtime_registry
+from torch import Tensor
 from tqdm import tqdm
 
 
@@ -79,3 +80,47 @@ def predict(
             return {key: np.concatenate(value, axis=0) for key, value in y_preds.items()}
         else:
             return [np.concatenate(value, axis=0) for value in y_preds]
+
+
+def slide_average(
+    f: Callable[[Tensor], Tensor],
+    inputs: Tensor,
+    crop_size: int,
+    max_stride: int,
+    weight_type: Literal["uniform", "distance_to_border"] = "distance_to_border",
+    up_scale: int = 1,
+) -> Tensor:
+    B, _, H, W = inputs.shape
+
+    nh = (H - crop_size + max_stride - 1) // max_stride
+    nw = (W - crop_size + max_stride - 1) // max_stride
+
+    ys = np.linspace(0, H - crop_size, nh).astype(int)
+    xs = np.linspace(0, W - crop_size, nw).astype(int)
+    starts = [(y, x) for y in ys for x in xs]
+
+    outputs = [f(inputs[..., y : y + crop_size, x : x + crop_size]) for y, x in starts]
+    output_channels = outputs[0].shape[1]
+
+    crop_size = crop_size * up_scale
+    starts = [(y * up_scale, x * up_scale) for y, x in starts]
+    H, W = H * up_scale, W * up_scale
+    assert all([o.shape == (B, output_channels, crop_size, crop_size) for o in outputs])
+
+    if weight_type == "uniform":
+        weights = torch.ones((crop_size, crop_size)).to(inputs)
+    elif weight_type == "distance_to_border":
+        weights = (1 - torch.linspace(-1, 1, crop_size + 2)[1:-1].abs()) / 2
+        weights = torch.minimum(weights[:, np.newaxis], weights[np.newaxis, :])
+        weights = weights.to(inputs)
+    else:
+        raise RuntimeError()  # TODO: message
+
+    merged = torch.zeros((B, output_channels, H, W)).to(inputs)
+    normalize = torch.zeros((H, W)).to(inputs)
+
+    for (y, x), o in zip(starts, outputs):
+        merged[:, :, y : y + crop_size, x : x + crop_size] += weights * o
+        normalize[y : y + crop_size, x : x + crop_size] += weights
+
+    return merged / normalize
