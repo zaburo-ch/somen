@@ -92,8 +92,8 @@ def slide_average(
 ) -> Tensor:
     B, _, H, W = inputs.shape
 
-    nh = (H - crop_size + max_stride - 1) // max_stride
-    nw = (W - crop_size + max_stride - 1) // max_stride
+    nh = (H - crop_size + max_stride) // max_stride
+    nw = (W - crop_size + max_stride) // max_stride
 
     ys = np.linspace(0, H - crop_size, nh).astype(int)
     xs = np.linspace(0, W - crop_size, nw).astype(int)
