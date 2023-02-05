@@ -113,15 +113,15 @@ def slide_average(
     outputs = [f(inputs[..., y : y + crop_size, x : x + crop_size]) for y, x in starts]
     output_channels = outputs[0].shape[1]
 
-    if up_scale > 1:
-        crop_size = crop_size * up_scale
-        starts = [(y * up_scale, x * up_scale) for y, x in starts]
-        H, W = H * up_scale, W * up_scale
-        assert all([o.shape == (B, output_channels, crop_size, crop_size) for o in outputs])
-    elif down_scale > 1:
+    if down_scale > 1:
         crop_size = crop_size // down_scale
         starts = [(y // down_scale, x // down_scale) for y, x in starts]
         H, W = H // down_scale, W // down_scale
+        assert all([o.shape == (B, output_channels, crop_size, crop_size) for o in outputs])
+    else:
+        crop_size = crop_size * up_scale
+        starts = [(y * up_scale, x * up_scale) for y, x in starts]
+        H, W = H * up_scale, W * up_scale
         assert all([o.shape == (B, output_channels, crop_size, crop_size) for o in outputs])
 
     if weight_type == "uniform":
