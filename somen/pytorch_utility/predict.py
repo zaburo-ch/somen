@@ -89,23 +89,40 @@ def slide_average(
     max_stride: int,
     weight_type: Literal["uniform", "distance_to_border"] = "distance_to_border",
     up_scale: int = 1,
+    down_scale: int = 1,
 ) -> Tensor:
+    assert up_scale == 1 or down_scale == 1
+
     B, _, H, W = inputs.shape
 
     nh = (H - crop_size + max_stride) // max_stride
     nw = (W - crop_size + max_stride) // max_stride
 
-    ys = np.linspace(0, H - crop_size, nh).astype(int)
-    xs = np.linspace(0, W - crop_size, nw).astype(int)
+    if down_scale > 1:
+        assert H % down_scale == 0 and W % down_scale == 0
+        assert crop_size % down_scale == 0
+        # Get indices divisible by down_scale
+        ys = np.linspace(0, (H - crop_size) // down_scale, nh).round().astype(int) * down_scale
+        xs = np.linspace(0, (W - crop_size) // down_scale, nw).round().astype(int) * down_scale
+    else:
+        ys = np.linspace(0, H - crop_size, nh).astype(int)
+        xs = np.linspace(0, W - crop_size, nw).astype(int)
+
     starts = [(y, x) for y in ys for x in xs]
 
     outputs = [f(inputs[..., y : y + crop_size, x : x + crop_size]) for y, x in starts]
     output_channels = outputs[0].shape[1]
 
-    crop_size = crop_size * up_scale
-    starts = [(y * up_scale, x * up_scale) for y, x in starts]
-    H, W = H * up_scale, W * up_scale
-    assert all([o.shape == (B, output_channels, crop_size, crop_size) for o in outputs])
+    if up_scale > 1:
+        crop_size = crop_size * up_scale
+        starts = [(y * up_scale, x * up_scale) for y, x in starts]
+        H, W = H * up_scale, W * up_scale
+        assert all([o.shape == (B, output_channels, crop_size, crop_size) for o in outputs])
+    elif down_scale > 1:
+        crop_size = crop_size // down_scale
+        starts = [(y // down_scale, x // down_scale) for y, x in starts]
+        H, W = H // down_scale, W // down_scale
+        assert all([o.shape == (B, output_channels, crop_size, crop_size) for o in outputs])
 
     if weight_type == "uniform":
         weights = torch.ones((crop_size, crop_size)).to(inputs)
