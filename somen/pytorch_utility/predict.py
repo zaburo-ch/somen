@@ -87,7 +87,7 @@ def slide_average(
     inputs: Tensor,
     crop_size: int,
     max_stride: int,
-    weight_type: Literal["uniform", "distance_to_border"] = "distance_to_border",
+    weight_type: Literal["uniform", "distance_to_border"] = "uniform",
     up_scale: int = 1,
     down_scale: int = 1,
 ) -> Tensor:
