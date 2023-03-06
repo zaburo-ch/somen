@@ -228,7 +228,14 @@ def train(
         extensions.append(snapshot_ext)
 
     # Build Trainer
-    logic = Logic() if config.logic is None else config.logic
+    if config.logic is None:
+        if config.autocast:
+            logic = Logic(autocast=True, grad_scaler=torch.cuda.amp.GradScaler())
+        else:
+            logic = Logic()
+    else:
+        logic = config.logic
+
     handler = MyHandler(logic, runtime_registry.get_runtime_class_for_device_spec(device)(device, {}), {})
     trainer = Trainer(
         handler,

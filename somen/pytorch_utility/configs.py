@@ -43,6 +43,9 @@ class TrainingConfig:
     train_sampler: Optional[torch.utils.data.Sampler] = None
     progress_bar: bool = False
 
+    # automatic mixed precision
+    autocast: bool = False
+
     # evaluator
     metrics: Optional[Sequence[Metric]] = None
     macro_metrics: Optional[Sequence[Metric]] = None
