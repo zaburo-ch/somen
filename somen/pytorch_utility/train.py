@@ -230,7 +230,7 @@ def train(
     # Build Trainer
     if config.logic is None:
         if config.autocast:
-            logic = Logic(autocast=True, grad_scaler=torch.cuda.amp.GradScaler())
+            logic = Logic(options={"autocast": True, "grad_scaler": torch.cuda.amp.GradScaler()})
         else:
             logic = Logic()
     else:
