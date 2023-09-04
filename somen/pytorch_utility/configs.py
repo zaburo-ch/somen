@@ -45,6 +45,7 @@ class TrainingConfig:
 
     # automatic mixed precision
     autocast: bool = False
+    grad_scaler: bool = True  # Ignored unless autocast is True
 
     # evaluator
     metrics: Optional[Sequence[Metric]] = None
